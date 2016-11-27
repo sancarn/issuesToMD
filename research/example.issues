@@ -1,0 +1,665 @@
+[
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/13",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/13/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/13/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/13/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/13",
+    "id": 185513276,
+    "number": 13,
+    "title": "Pre-Compiler",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-10-26T21:19:57Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "# Interlude\n\nTo make this project easy to manage and easy to extend, a pre-compiler may need to be created. In this issue I will explain why this is necessary and what the issues with the idea are, as well as some potential solutions to said problems.\n# Difficulty to Extend\n\nWhat are the current steps required when extending (and compiling) the Extended MapBasic Application?\n## Create transpiling library\n\nOf course the first step is to make the code which takes some source code and converts that into the new transpiled source code. Currently there is no convention to how the transpiling function should be named. Let's assume, for simplicity, it's defined as f().\n\nUltimately the transpiling library acts a bit like this:\n\n`mbsource = f(mbsource)`\n## Editing EMB_Core/transpile.ahk\n\nWriting the functions isn't the only thing that needs to be done before compiling. You also need to link these new transpiling functions to the rest of the application. You do this by modifying the \"LIB_Core/transpile.ahk\" file with the code above:\n\n```\nmbsource = EMB_Lib_BlockComment(mbsource)\nmbsource = EMB_Lib_BlockQuote(mbsource)\nmbsource = EMB_Lib_AutoDeclare(mbsource)\nmbsource = EMB_Lib_OptionalArgs(mbsource)\nmbsource = f(mbsource)\n```\n## Including the transpiling library in header.ahk\n\nIn order to try and simplify this process I decided to use a header file. This file declares all .AHK modules/libraries which are used in the final project. Of course our file needs to be included here also:\n\n```\n#Include \"EMB_Lib/BlockComment.ahk\"\n#Include \"EMB_Lib/BlockQuote.ahk\"\n#Include \"EMB_Lib/AutoDeclare.ahk\"\n#Include \"EMB_Lib/myFunctions.ahk\"\n```\n## RegEx for Transpile Requirement Detection\n\nBefore Extended MapBasic transpiles the MapBasic application it first detects whether it needs to transpile at all. To do this RegEx is added to the needsTranspiling() function of the file \"EMB_Core/transpiler.ahk\".\n\n```\nexample needed\n```\n## Other future features which might be required\n# The Problem\n## Modifying EMB is not easy!\n\nHaving to modify 4+ lines of code is definitely not a difficult task, however it does involve editing files within the \"vital organs\" of Extended MapBasic. An accidental error could cause serious damage to the compiled exe / cause damage to compiled MBX files which is what we want to avoid most, but it could also cause a lot of false bug-reports with working versions of Extended MapBasic.\n# The solution\n## Simple extensibility\n\nThe simplest extensibility is a simple \"drag and drop\" extensibility. E.G. If you want to add a library \"MyFunctions.ahk\" to Extended MapBasic, you simply drop the file into the \"EMB_Lib\" folder, make sure the transpilation regex is declared (as in the example below) and run Compile.EXE.\n\nCompile.EXE will run:\n- Pre-Compile.EXE - Used to create all the requirements declared above from the contents and the file name of the file.\n- Ahk2Exe.EXE - Used to compile the Pre-Compile AHK files into a full .exe file.\n\nExample extension \"MyFunctions.AHK\"\n\n```\n;RegEx = {i)=\\s*myfunction\\(\\),i)=\\s*myNextFunction\\(\\w+\\s+as\\s+\\w+\\)}\n\nEMB_Lib_MyFunctions(mbsource) {\n    ;Your AHK library code here\n}\n```\n\nNote:\n- The RegEx specifies multiple different Regular Expressions, all of which would indicate that the source needs transpiling.\n- The name of the main function which transpiles the MapBasic code is called \"EMB_Lib_MyFunctions\". That is \"EMB_Lib_\" + <Name of Library>.\n# More Problems?\n## Problem 1: Transpilation Order\n\nSince now the user doesn't specify the specific transpilation order a problem might occur where transpilation of certain code might be required to run **BEFORE** other transpilation modules.\n\nE.G.\n\nA EMB module might add a new function `TempTable` with the definition `TempTable(numCol as integer, optional colDefs as string, optional colDelimeter as string)`\n\nIn this case the EMB module should be transpiled **BEFORE EMB_Lib_OptionalArguments()** and not after.\n### Potential Solutions:\n\nOne option is to add a Transpile_Before option:\n\n```\n;T_BEFORE = \"EMB_Lib_OptionalArguments()\"\n;RegEx = {TempTable\\(}\n\nEMB_Lib_MyFunctions(mbsource) {\n    ;Your AHK library code here\n}\n```\n## A standard to be kept\n\nAnyone who is used to standards know that it is innately difficult for people to keep said standards.\n### A potential solution\n\nA simple AHK-IDE for creating transpilation libraries might be useful. The IDE would enforce users to specify whether their function should be transpiled before certain modules as well as the transpilation regex.\n\nIt is also important to note that **Error checking should be implemented into the pre-compiler to check validity of modules before implementing changes to the source**\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/12",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/12/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/12/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/12/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/12",
+    "id": 184595424,
+    "number": 12,
+    "title": "Compile to .EXE",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-10-22T00:17:51Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "Recently I changed the front page adding an intended feature, that I had never dreamt of before:\n- [ ]  Compile to .exe\n\nBut... How? In this issue I am going to brainstorm my ideas on this.\n# How it works\n\nThe actual idea is pretty simple. Our Transpiled MapBasic source code will be placed in a AHK file - mbSrc.ahk like:\n\n```\nMapBasicSrc = (\"\n<MapBasic code goes here>\n\")\n```\n\nWe also create a MapBasicExecuter.ahk.\n\nThe first line of this code will Include mbSrc.ahk.\n\nThe rest of the application will parse be set up to parse the MapBasicSrc variable. It will identify For loops, if statements, dialogs statements and parse all necessary information to MapInfo using OLE Automation.\n\nThis will truly be revolutionary to MapBasic developers wanting to create simple but secure MapBasic applications - including the ability to even license MapBasic applications. The possibilities with this technique are potentially endless.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/11",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/11/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/11/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/11/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/11",
+    "id": 181975606,
+    "number": 11,
+    "title": "'Total length of the Group By fields must not exceed 255 bytes' error",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 1,
+    "created_at": "2016-10-10T09:52:44Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "The issue here:\n\nhttp://support.pitneybowes.com/VFP06_KnowledgeWithSidebarTroubleshoot?id=kA280000000Cku6CAC&popup=false&lang=en_US\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/10",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/10/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/10/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/10/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/10",
+    "id": 181477821,
+    "number": 10,
+    "title": "[Idea] Table.ColumnName in SQL Select",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-10-06T17:31:19Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "Something that annoys me a fair amount is when I am trying to loop over one table and select records in the other. For instance:\n\n```\nFor i =1 to tableinfo(MyLookup,8)\n  fetch rec n from MyLookupTable\n  select * from MyTable where Lookup = MyLookupTable.Lookup into Q\n  '... Do something with Q ...\n  close Q\nnext\n```\n\nIn my mind this should work in exactly the same way as the following:\n\n```\nDim s as string\nFor i =1 to tableinfo(MyLookup,8)\n  fetch rec n from MyLookupTable\n  s = MyLookupTable.Lookup\n  select * from MyTable where Lookup = s into Q\n  '... Do something with Q ...\n  close Q\nnext\n```\n\nHowever instead it simply errors out. I believe that this should be fixed in the MapBasic language and Should be, therefore, fixed in EMB.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/9",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/9/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/9/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/9/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/9",
+    "id": 177372865,
+    "number": 9,
+    "title": "[IDEA] clsProgressBar",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-09-16T08:42:26Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "# EMB - Progress Bar:\n## Option 1 - Transpile to Native MapBasic\n\n```\n    Sub doTheStuff()\n        Dim pb as New clsProgressBar    'This is a Extended MapBasic call to create a new progress bar\n        pb.Title \"Doing the stuff!\"     'Set the Progress bar text.\n        pb.Range = 5                    'Set the number of stages of the progress bar.\n        pb.Show\n            'do stuff\n            pb.progress = pb.progress + 1\n            'do more stuff\n            pb.progress = pb.progress + 1\n            'do more stuff\n            pb.progress = pb.progress + 1\n            'do more stuff\n            pb.progress = pb.progress + 1\n            'do more stuff\n            pb.progress = pb.progress + 1\n            'do more stuff\n        pb.Hide\n    End Sub\n```\n\nTranspiles to:\n\n```\n    Dim mnProgress1 as integer\n\n    Sub doTheStuff()\n        ProgressBar \"Doing the stuff!\" Calling doProgressBar(1) Range 5\n    End Sub\n\n    sub doProgressBar(i)\n        Do Case i\n            Case 1\n                mnProgress1 = mnProgress1 + 1\n                Do case mnProgress\n                    Case 1\n                        'doStuff\n                    Case 2\n                        'do more stuff\n                    Case 3\n                        'do more stuff\n                    Case 4\n                        'do more stuff\n                    Case 5\n                        'do more stuff\n                End Case\n\n                If mnProgress = 5\n                    ProgressBar = -1\n                Else\n                    ProgressBar = mnProgress1\n                End If\n\n            'More cases...\n        End Case\n    End Sub\n```\n## Option 2 - Custom dialog\n\n`No example yet...`\n## Option 3 - External .NET Dialog\n\n`No example yet...`\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/8",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/8/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/8/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/8/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/8",
+    "id": 173609845,
+    "number": 8,
+    "title": "The repository is already a mess...",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-08-27T18:48:25Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "Something that should be thought about is how the source code and the repository is organised.\n\nNote - It may be useful to combine all AHK files in the repository into one. For this we can use [this](https://autohotkey.com/board/topic/17049-script-functions-scriptmerge-092/)\n\nFor a start we may want a folder: \"src\". In this folder we will keep:\nThe main script, the script to compile, should probably be Main.AHK.\nAll inclusion statements should be contained in a separate Headers.AHK.\nA folder lib_core (storing all .AHK files for the core features compiler.)\nA folder lib_emb (storing folders of .AHK files built to extend MapBasic)\n\nHere's a picture of how I envision it:\n\n![extended mapbasic organisation](https://cloud.githubusercontent.com/assets/7938900/18029462/724d5628-6c90-11e6-8814-b2a0f3507ba3.png)\n\nIt is likely to end up different to this and many files which should be separate will likely be combined together for splitting later on. I also still don't know whether the header file will work as I think it will. It's all currently untested but this will be much better than its current state.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/7",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/7/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/7/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/7/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/7",
+    "id": 173437245,
+    "number": 7,
+    "title": "Including files other than DEF/STR files",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 1,
+    "created_at": "2016-08-26T12:00:00Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "Including a real file - Syntax:\n\n```\nInclude \"C:\\myfile.bas\", filePath as string\n```\n\nFrom this point filePath will represent a real file path for \"myfile.bas\"\n\nWhen we transpile to .MB we will transpile it to code like this:\n\n```\nIf fileexist(\"C:\\myfile.bas\" then\n   filePath = \"C:\\myfile.bas\"\nelse \n    filePath = makeFile(<GUID>)\nEnd If\n\nDim <GUID> as string\n<GUID> = hex(<fileContents>)\n\nSub makeFile(fileContents as string)\n...\nEnd Sub\n```\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/6",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/6/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/6/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/6/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/6",
+    "id": 173064303,
+    "number": 6,
+    "title": "TextToSpeech Library",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-08-24T21:38:02Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "See https://autohotkey.com/board/topic/15192-tts-text-to-speech-using-com/\nFor implementation\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/5",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/5/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/5/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/5/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/5",
+    "id": 172702746,
+    "number": 5,
+    "title": "Determining position of cursor in MapBasic Window",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-08-23T13:43:08Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "While the MapBasic window doesn't have a hWND, here is a simple key-stroke to determine the position of the cursor, execute all commands, and return to the original position.\n\nSuspend, On\nold_clipboard := ClipboardAll\nSend, ^+{Home}\nSend, ^c\npos := StrLen(clipboard)\nSend, ^a\nSuspend,Off\nSend. {Enter}\n;... do stuff\nSend,^{Home}\nLoop, pos\n   send, {Right}\nclipboard := old_clipboard\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/4",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/4/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/4/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/4/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/4",
+    "id": 172663828,
+    "number": 4,
+    "title": "Find \"If ... End If\" blocks avoiding \"Catastrophic Backtracking\"",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-08-23T10:25:56Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "Algorithm:\n\nUse \"\\bIf\\s+.+\\s+Then\" to find \"If ... then\"\nUse \"\\bEnd\\s+If\\b\" to find End If.\n\nE.G.\n\nPositions of END: 170, 234, 746, 754\nPositions of IFS: 115, 181, 383, 633\n\nConcatenate e or i depending on which list they're in. Then merge lists:\n   170E, 234E, 746E, 754E, 115I, 181I, 383I, 633I\n\nSort list:\n   115I, 170E, 181I, 234E, 383I, 633I, 746E, 754E\n\nThis is our nested if ... end if structure.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/3",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/3/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/3/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/3/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/3",
+    "id": 172570175,
+    "number": 3,
+    "title": "Auto-Declare System",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2016-08-22T22:27:40Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "# Finding Sub-Routines without declares:\n\nOne of the features I wanted to implement was the Auto-Declare feature. It always annoyed me that you had to declare all functions and sub routines when creating MapBasic application. I still don't know why this is important to be honest... Many other programming languages I have worked with have been fine without function declares, so why should MapBasic be any different? Regardless, this feature will put that right.\n\nThe plan is to remove all existing declares (for compatibility), and then to recreate them. We will also allow this feature will be disable-able.\n\nIn this issue, I will make a few suggestions as to how we may go about implementing Auto-Declare.\n## Original idea:\n\nSelects \"Sub ... End Sub\" blocks:\n`(?<!Declare )sub\\s+(?!\\bsub\\()\\w+\\(\\)(.|\\s)*?End\\s+Sub <-- Selects Sub ... End Sub blocks`\n[(?<!Declare\\s+) doesn't work which implies this will not work\n\n---\n\nSubs extracted into capturing groups (see http://www.rexegg.com/regex-best-trick.html):\n\n`Declare\\s+(Sub).*|(\\b(Sub)\\b.*\\(\\))`\n\nFunctions into extracted sub-patterns:\n`Declare\\s+\\bFunction\\b.*|(\\bFunction\\b.*\\(\\).*)`\n\nProblem occurs with arguments in the functions...\n\n---\n# Final patterns?\n\nThese are the final patterns I came up with tonight. They could probably be extended further (they might have to be) but for the purpose of Auto-Declare this system is probably fine\n## Functions\n\n```\n\\bDeclare\\s+Function\\s+\\w+\\($args$\\)\\s+as\\s+\\w+|(\\bFunction\\s+\\w+\\($args$\\)\\s+as\\s+\\w+)\n```\n## Sub-routines\n\n```\n\\bDeclare\\s+Sub\\s+\\w+\\($args$\\)|(\\bSub\\s+\\w+\\($args$\\))\n```\n## Important:\n\nReplace `$args$` with `(?:\\s*\\w+\\s+as\\s+\\w+\\s*){0,1}(?:,\\s*\\w+\\s+as\\s+\\w+\\s*)*`\n\n---\n# Final words\n\nNow that we have a pattern we need to simply test the program. Also things will likely change in the future with MBP compatibility. That's for another day...\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/2",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/2/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/2/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/2/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/2",
+    "id": 172392685,
+    "number": 2,
+    "title": "Detecting when MapBasic window is active and a word on the Message window",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 2,
+    "created_at": "2016-08-22T08:15:51Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "I was hoping we would be able to grab the hWND from MapInfo using the WindowInfo() function.\nThe MapInfo window ID for the MapBasic window is 1002.\n\nIf I do the following:\nprint WindowInfo(1002,12) '[or WindowInfo(WIN_MAPBASIC,WIN_INFO_WND) ]\n\nI get 0 in the Message Window, regardless of whether the window is bound to MapInfo or not.\n\nUnfortunately also there is no specific info that we can target from AHK that would indicate the current window being the MapBasic Window. However there is the active window's text which we can get with WinGetText statement. That contains this:\n\n```\n<<\n>>\n List \n```\n\nIf the MapBasic window is not docked to the main application however the title of the window is indicated as \"MapBasic\". Therefore we can say:\n\n```\nWinGetTitle, TITLE, A\nMapBasicWindowActive(){\n    If winexist(\"MapBasic\"){\n        return TITLE = \"MapBasic\"\n    } else {\n        ;...\n    }\n}\n```\n\nThe question really comes down to what we do in that ...\n\n---\n\nOn a more positive note the Message window is much easier to access:\nWhen docked:\n\n> ClassNN: RICHEDIT1\n> WindowInfo(1003,12) returns 1117068 (at least it returns something!)\n> again if not docked wintitle = \"Message\"\n"
+  },
+  {
+    "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/1",
+    "repository_url": "https://api.github.com/repos/sancarn/Extended_MapBasic",
+    "labels_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/1/labels{/name}",
+    "comments_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/1/comments",
+    "events_url": "https://api.github.com/repos/sancarn/Extended_MapBasic/issues/1/events",
+    "html_url": "https://github.com/sancarn/Extended_MapBasic/issues/1",
+    "id": 172345066,
+    "number": 1,
+    "title": "Ideas for the addition of custom MapBasic functions",
+    "user": {
+      "login": "sancarn",
+      "id": 7938900,
+      "avatar_url": "https://avatars.githubusercontent.com/u/7938900?v=3",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/sancarn",
+      "html_url": "https://github.com/sancarn",
+      "followers_url": "https://api.github.com/users/sancarn/followers",
+      "following_url": "https://api.github.com/users/sancarn/following{/other_user}",
+      "gists_url": "https://api.github.com/users/sancarn/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/sancarn/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/sancarn/subscriptions",
+      "organizations_url": "https://api.github.com/users/sancarn/orgs",
+      "repos_url": "https://api.github.com/users/sancarn/repos",
+      "events_url": "https://api.github.com/users/sancarn/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/sancarn/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "labels": [
+      {
+        "id": 428495173,
+        "url": "https://api.github.com/repos/sancarn/Extended_MapBasic/labels/enhancement",
+        "name": "enhancement",
+        "color": "84b6eb",
+        "default": true
+      }
+    ],
+    "state": "open",
+    "locked": false,
+    "assignee": null,
+    "assignees": [
+
+    ],
+    "milestone": null,
+    "comments": 1,
+    "created_at": "2016-08-21T22:25:35Z",
+    "updated_at": "2016-11-24T07:06:47Z",
+    "closed_at": null,
+    "body": "It may be desired for these custom MapBasic functions to reside separate from the standard application (perhaps in a sub-folder, A_ScriptDir/Libraries/...)\n\nRequired information:\n- code = {...} block, indicating what code should be inserted into the .MB file.\n\nEach of these statements should be surrounded in a special string to provide easy extraction with RegEx. For example:\n\n```\n{\nSub say(someArg as string)\n    print someArg\nEnd Sub\n}\n```\n\nDeclares will be automatically added into the header of the file and should not be included in the code block. All Declare blocks will be removed with RegexReplace(str,\"Declare.*\",\"\") [unless anyone can offer a reason as to why this is a bad idea!]\n\nEach sub/function should be kept separate. If one requires the existence of another a comment should be added 'Requires \"Name of Function or Sub\". - Why? Mainly for future features. It may be nice for users to select which functions they want to use from which libraries.\n\nIt may also be nice to add functionality for custom statements. Classes and COMObjects would also be a nice feature if possible to implement in MB.\n\n---\n\nCustom Statement Idea:\nSet up a Regex replace to find statements and replace them with sub-routine calls:\n\n```\n{\n{\nstatement: place\\s+\"(.*)\"\\s+(on|in)\\s+\"(.*)\"\n}\n{\nreplace: call place(match1,\"match2\",match3)\n}\n}\n```\n\nThen define the sub-routine calls separately:\n\n```\n{\nsub place(object as string, on_in as string, furniture as string)\n    if object = \"\" then\n        Note \"An error occurred in statement place - Cannot place nothing\"\n    end if\n    if on_in <> any(\"on\",\"with\") AND furniture <> \"\" then\n        Note \"An error occurred in statement place - Cannot place item\"\n    end if\n    print object & \" is now \" & on_in & \" \" & furniture\nend sub\n}\n```\n\nThis setup would convert something like this:\nplace \"this\" on \"that\"\n\nInto this:\ncall place(\"this\",\"on\",\"that\")\n\nWhich would call the base sub-routine function. In the end these are simply sub-routines, but they may be easier to understand in this context than as actual sub-routine.\n"
+  }
+]

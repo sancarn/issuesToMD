@@ -1,19 +1,19 @@
-find \\" replace with $quote$
+Find \\ replace with $double-slash$
+Find \" replace with $quote$
+Find \{ replace with $start_parenthesis$
+Find \} replace with $end_parenthesis$
 
-find (".*?)(?:{)+?(.*?") replace with \1$start_parenthesis$\2		**EXECUTE TIL NO MATCH**
-find (".*?)(?:})+?(.*?") replace with \1$end_parenthesis$\2		**EXECUTE TIL NO MATCH**
-
-find {(?:\s|.)*?"body"(?:\s|.)*?}
+Find {(?:\s|.)*?"body"(?:\s|.)*?}
 with sub source keep:
 "number": (\d*)
 "Title": "(.*?)"
-"html_url": ".*?"
+"html_url": "(.*?)"
 "body": "(.*?)"
 "state": "(.*?)"
 
-put into format like:
-
 if state = open then state := "X" else state := " "
+
+put into format like:
 
 # ISSUE %number% : [%Title%](%html_url%) [%state%]
 
@@ -22,3 +22,19 @@ if state = open then state := "X" else state := " "
 ---------------------------------------
 
 save as .md file
+
+GetJSonText(source,pattern){
+  ;Pattern be something like:
+  ;"Title": "(.*?)"
+
+  subPat = "(.*?)"
+  RegexMatch(pattern, subPat, Match)
+  RexexMatch(source,pattern,iMatch)
+
+  Global %Match1%
+  %Match1% := iMatch1
+
+  ;This should result in:
+  ;Title := "..."
+  ;for example
+}
